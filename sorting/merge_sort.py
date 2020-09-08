@@ -18,25 +18,34 @@ def merge(xs, ys):
     len_xs = len(xs)
     len_ys = len(ys)
 
+    if ix >= len_xs:
+        return ys
+    else:
+        x = xs[ix]
+
+    if iy >= len_ys:
+        return xs
+    else:
+        y = ys[iy]
+
+    # NOTE: We have chosen to only perform one append, index-increment and stop-criteria per loop-iteration
     while True:
-        if ix >= len_xs:
-            rs.extend(ys[iy:])
-            break
-        else:
-            x = xs[ix]
-
-        if iy >= len_ys:
-            rs.extend(xs[ix:])
-            break
-        else:
-            y = ys[iy]
-
         if x < y:
             rs.append(x)
             ix += 1
+            if ix >= len_xs:
+                rs.extend(ys[iy:])
+                break
+            else:
+                x = xs[ix]
         else:
             rs.append(y)
             iy += 1
+            if iy >= len_ys:
+                rs.extend(xs[ix:])
+                break
+            else:
+                y = ys[iy]
 
     return rs
 
