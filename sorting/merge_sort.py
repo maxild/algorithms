@@ -49,6 +49,34 @@ def merge(xs, ys):
 
     return rs
 
+# Pseudo Code from the book for Merge
+#
+# C and D are sorted arrays (length n/2 each)
+# B is the resulting sorted array (length n)
+#
+# i := 0  # C's index
+# j := 0  # D's index
+# for k := 0 to n-1 do
+#    # C's exhausted thus fill up B with D
+#    if C's length = i
+#       B[k] := D[j]
+#       j := j + 1
+#    # D's exhausted thus fill up B with C
+#    elif D's length = j
+#       B[k] := D[i]
+#       i := i + 1
+#    elif C[i] < D[j]
+#       B[k] := C[i]
+#       i := i + 1
+#    else
+#       B[k] := D[j]
+#       j := j + 1
+#  return B
+
+# Python 3 has no int.maxvalue because integers are not fixed sized. One can
+# use sys.maxsize = 2**63 - 1 (signed 64-bit integer maxvalue). Minvalue is
+# calculated as -2**63 = ~sys.maxsize, for same signed 64-bit integer.
+
 
 def main():
     print(f'{merge_sort([3, 5, 7, 2, 8, 1, 4, 6])}')
