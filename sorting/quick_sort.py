@@ -1,4 +1,6 @@
-# TODO: Do problem in the book where different ways of choosing pivot is measured w.r.t. perf/number of comparisons
+# TODO: Do problem in the book where different ways of choosing pivot is measured w.r.t. perf/number of comparisonsi
+import random
+
 
 def sort(xs):
     ys = xs[:]
@@ -16,20 +18,34 @@ def quick_sort(xs, l, h):
         # base case: for singleton array we are done
         return
     else:
-        pivot_index = l  # TODO: choose pivot using strategy pattern
-        m = partition(xs, l, h, pivot_index)
-        # NOTE: The pivot (m) is excluded from the recursive calls
-        quick_sort(xs, l, m)
-        quick_sort(xs, m + 1, h)
+        pivot_index = choose_pivot_naively(l, h)
+        # pivot_index = choose_pivot_randomly(l, h)
+        p = partition(xs, l, h, pivot_index)
+        # NOTE: The pivot (p) is excluded from the recursive calls
+        quick_sort(xs, l, p)
+        quick_sort(xs, p + 1, h)
+
+
+# noinspection PyUnusedLocal
+def choose_pivot_naively(l, h):
+    return l
+
+
+def choose_pivot_randomly(l, h):
+    return random.randint(l, h - 1)
 
 
 # TODO: Instrument partition with performance counter (see problem)
+# Partition the range(l, h) == l..h-1
 # in-place swapping (mutation) of elements such that the array is partitioned into 3 parts
 #   1. sub-array before the pivot element (with all elements less than the pivot)
 #   2. pivot element
 #   3. sub-array after the pivot element (with all elements greater than the pivot)
 # returns the index of the pivot element, which describes the partition
 # NOTE: a linear scan partitions all elements except the pivot
+# INVARIANT:
+#   * All elements between the pivot xs[l] and j are less than the pivot: l+1..j
+#   * All elements between j and i are greater than the pivot: j+1..h-1
 def partition(xs, l, h, p):
     # normalize pivot index to left-most element (element zero in the current sub-array)
     if p > l:
@@ -37,7 +53,7 @@ def partition(xs, l, h, p):
 
     j = l + 1  # the index of the left-most element in the second sub-array
     for i in range(l + 1, h):
-        # we swap any element less than the pivot with the left-most element in the second sub-array
+        # we swap any element less than the pivot with the left-most element in the second sub-array (enforce INVARIANT)
         if xs[i] < xs[l]:
             # NOTE: if j == i (because we haven't seen any bigger elements) we are doing redundant swaps
             xs[i], xs[j] = xs[j], xs[i]
@@ -47,6 +63,7 @@ def partition(xs, l, h, p):
     # NOTE: If all elements are bigger than the pivot (j-1 == l) we are doing a redundant swap
     xs[l], xs[j - 1] = xs[j - 1], xs[l]
 
+    # report final pivot position (index)
     return j - 1
 
 
