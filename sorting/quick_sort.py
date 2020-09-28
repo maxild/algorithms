@@ -1,11 +1,29 @@
-# TODO: Do problem in the book where different ways of choosing pivot is measured w.r.t. perf/number of comparisonsi
+import os
 import random
 
 
-def sort(xs):
+def sort_pivot_first(xs):
     ys = xs[:]
-    quick_sort(ys, 0, len(ys))
-    return ys
+    comparisons = quick_sort(ys, 0, len(ys), 0, lambda zs, l, h: l)
+    return ys, comparisons
+
+
+def sort_pivot_last(xs):
+    ys = xs[:]
+    comparisons = quick_sort(ys, 0, len(ys), 0, lambda zs, l, h: h - 1)
+    return ys, comparisons
+
+
+def sort_pivot_median(xs):
+    ys = xs[:]
+    comparisons = quick_sort(ys, 0, len(ys), 0, lambda zs, l, h: choose_pivot_median_of_three(zs, l, h))
+    return ys, comparisons
+
+
+def sort_pivot_randomly(xs):
+    ys = xs[:]
+    comparisons = quick_sort(ys, 0, len(ys), 0, lambda zs, l, h: choose_pivot_randomly(l, h))
+    return ys, comparisons
 
 
 # We cannot use master method, because the partition is not balanced!!!
@@ -13,26 +31,68 @@ def sort(xs):
 #    T(n) = 2 * T(n/2) + c*n
 # I.e. Theta(n + log(n))
 # NOTE: The partition sub-routine puts the pivot element in the correct place (INVARIANT that proofs the correctness)
-def quick_sort(xs, l, h):
-    if h - l <= 1:
-        # base case: for singleton array we are done
-        return
+def quick_sort(xs, l, h, count, pivot_fn):
+    length = h - l
+    if length <= 1:
+        # base case: for singleton array we are done (no comparisons)
+        return count
     else:
-        pivot_index = choose_pivot_naively(l, h)
+        # pivot_index = choose_pivot_first(l, h)
+        # pivot_index = choose_pivot_last(l, h)
         # pivot_index = choose_pivot_randomly(l, h)
+        # pivot_index = choose_pivot_median_of_three(xs, l, h)
+        pivot_index = pivot_fn(xs, l, h)
+        # Add the number of comparisons made by this recursive call in the following partition sub-routine
+        count1 = count + length - 1
         p = partition(xs, l, h, pivot_index)
         # NOTE: The pivot (p) is excluded from the recursive calls
-        quick_sort(xs, l, p)
-        quick_sort(xs, p + 1, h)
+        count2 = quick_sort(xs, l, p, count1, pivot_fn)
+        count3 = quick_sort(xs, p + 1, h, count2, pivot_fn)
+        return count3
 
 
 # noinspection PyUnusedLocal
-def choose_pivot_naively(l, h):
+def choose_pivot_first(l, h):
     return l
+
+
+# noinspection PyUnusedLocal
+def choose_pivot_last(l, h):
+    return h - 1
 
 
 def choose_pivot_randomly(l, h):
     return random.randint(l, h - 1)
+
+
+# NOTE: get better performance for (nearly) sorted arrays (also reverse sorted arrays)
+def choose_pivot_median_of_three(xs, l, h):
+    # NOTE: for 2 elements we just replicate the last element
+    m = (l + h - 1) // 2  # NOTE: For an equal number of elements we pick the left-most of the 2 middle indices
+    ys = [xs[l], xs[m], xs[h - 1]]
+    indices = [l, m, h - 1]
+    insertion_sort(ys, indices)
+    return indices[1]
+
+
+# insertion sort hard coded to 3 elem list/array
+def insertion_sort(xs, perm):
+    if xs[1] < xs[0]:
+        xs[1], xs[0] = xs[0], xs[1]
+        perm[1], perm[0] = perm[0], perm[1]
+    if xs[2] < xs[1]:
+        xs[2], xs[1] = xs[1], xs[2]
+        perm[2], perm[1] = perm[1], perm[2]
+        if xs[1] < xs[0]:
+            xs[1], xs[0] = xs[0], xs[1]
+            perm[1], perm[0] = perm[0], perm[1]
+
+
+# < 0  means LT
+# == 0 means EQ
+# > 0 means GT
+def numeric_compare(x, y):
+    return x - y
 
 
 # TODO: Instrument partition with performance counter (see problem)
@@ -103,11 +163,37 @@ def my_partition(xs, p):
     return i - 1
 
 
+def load_list(filename):
+    script_path = os.path.realpath(__file__)
+    dir_path = os.path.dirname(script_path)
+    filepath = os.path.join(dir_path, filename)
+    xs = []
+    with open(filepath) as fp:
+        for number, line in enumerate(fp):
+            xs.append(int(line))
+            # print("Line {}: {}".format(number, line))
+    return xs
+
+
 def main():
-    xs = [3, 8, 2, 5, 1, 4, 7, 6]
-    pivot_index = partition(xs, 0, len(xs), 0)
-    print(f'{xs} with pivot index {pivot_index}')
-    print(sort(xs))
+    # data from the book website
+    xs = load_list('problem5.6test2.txt')
+    # arbitrary (non-sorted) list
+    # xs = [3, 8, 2, 5, 1, 4, 7, 6]
+    # sorted lists with wort case performance (7 + 6 + ... + 1 = 28 comparisons)
+    # xs = [1, 2, 3, 4, 5, 6, 7, 8]
+    # xs = [8, 7, 6, 5, 4, 3, 2, 1]
+    # pivot_index = partition(xs, 0, len(xs), 0)
+    # print(f'{xs} with pivot index {pivot_index}')
+
+    sorted_xs, c = sort_pivot_first(xs)
+    print(f'The {len(xs)}-element list have been sorted using {c} comparisons with the first element strategy.')
+    sorted_xs, c = sort_pivot_last(xs)
+    print(f'The {len(xs)}-element list have been sorted using {c} comparisons with the last element strategy.')
+    sorted_xs, c = sort_pivot_median(xs)
+    print(f'The {len(xs)}-element list have been sorted using {c} comparisons with the median element strategy.')
+    sorted_xs, c = sort_pivot_randomly(xs)
+    print(f'The {len(xs)}-element list have been sorted using {c} comparisons with the random element strategy.')
 
 
 if __name__ == '__main__':
