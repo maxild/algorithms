@@ -1,3 +1,7 @@
+from re import sub
+from random import randint
+
+
 # List representation of adjacency list
 #  * the vertices of a graph with n nodes will be numbered from 0 to n-1
 #  * vertex labels can be stored in separate list
@@ -17,6 +21,7 @@
 
 # edge-list representation
 #    G = {e=(u,v)} for all e in E
+
 
 # dict-of_dicts (V = {key_1, key_2, ..., key_n})
 def get_example_dict_repr():
@@ -51,14 +56,23 @@ def get_edge_list_example():
     return graph
 
 
-def equal_list_repr(g1, g2):
+def equal_graphs(g1, g2):
+    # len works on dict too!!!
     n1 = len(g1)
     n2 = len(g2)
     if n1 != n2:
         return False
-    for v in range(n1):
-        heads1 = g1[v]
-        heads2 = g2[v]
+    # convert to vertices list (i.e. the keys abstraction)
+    if isinstance(g1, dict) and isinstance(g2, dict):
+        vertices = g1.keys()
+    elif isinstance(g1, list) and isinstance(g2, list):
+        vertices = range(len(g1))
+    else:
+        raise TypeError('Graph is of wrong type')
+
+    for vertex in vertices:
+        heads1 = g1[vertex]
+        heads2 = g2[vertex]
         if len(heads1) != len(heads2):
             return False
         sorted_heads1 = sort(heads1)
@@ -105,52 +119,106 @@ def vertex_count(es):
             m = e[1]
     return m + 1
 
+#
+# Graph methods
+#
 
-# In many applications we would like to name vertices by strings or tuples, rather than identifiers.
-# For this purpose we propose to use a class Graph that permits to maintaining the mapping between
-# vertex names and vertex identifiers.
-class Graph:
-    def __init__(self):
-        self.neighbors = []  # out-edges (successors)
-        self.name2node = {}  # dict
-        self.node2name = []  # list
-        self.weight = []  # optional weights (list of lists)
 
-    def __len__(self):
-        return len(self.node2name)
+# Load the file into a graph represented by a dict of lists
+def graph_from_file(fn):
+    g = {}
 
-    # 'for v in G[w]' supports traversing the out-edges (G[w] are the heads of the tail w)
-    def __getitem__(self, v):
-        return self.neighbors[v]
+    f = open(fn)
+    lines = f.readlines()
+    f.close()
 
-    # returns the index
-    def add_node(self, name):
-        assert name not in self.name2node
-        new_index = len(self.name2node)
-        self.name2node[name] = new_index
-        self.node2name.append(name)
-        self.neighbors.append([])
-        self.weight.append({})
-        return new_index
+    # replace any whitespace with a single space and trim leading/trailing whitespace
+    lines = map(lambda s: sub(r'\s+', ' ', str(s.strip('\r\n'))).strip(), lines)
+    # then convert each line to a list of words
+    list_of_words = map(lambda s: s.split(' '), lines)
 
-    # add undirected (symmetric) edge
-    def add_edge(self, name_u, name_v, weight_uv=None):
-        # undirected graph
-        self.add_arc(name_u, name_v, weight_uv)
-        self.add_arc(name_v, name_u, weight_uv)
+    # parse each word of every line as an integer
+    for words in list_of_words:
+        g[int(words[0])] = list(map(lambda s: int(s), words[1:]))  # list() forces iterator evaluation
 
-    # add directed edge
-    def add_arc(self, name_u, name_v, weight_uv=None):
-        u = self.name2node[name_u]
-        v = self.name2node[name_v]
-        self.neighbors[u].append(v)
-        self.weight[u][v] = weight_uv
+    return g
 
+
+def contract_edge(graph, edge):
+    v = edge[0]  # tail
+    w = edge[1]  # head
+    # replace vertex v and w with new merged super-vertex
+    # (i.e. merge w into v and remove w from graph)
+    graph[v].extend(graph[w])
+    del graph[w]
+    # replace all occurrences of w with v
+    for k, heads in graph.items():
+        graph[k] = [v if x == w else x for x in heads]
+    # Remove all edges of v to itself (i.e. remove self-loops)
+    # graph[v].remove(v)  # TODO: remove_all (multi-graph has parallel edges)
+    graph[v] = [x for x in graph[v] if x != v]
+
+
+# this will finally report the cut size, when only two vertices remain
+def get_edge_length(graph):
+    return sum(len(vs) for vs in graph)
+
+
+def get_edge(graph, edge_index):
+    for vertex_key, heads in graph:
+        l = len(heads)
+        if edge_index < l:
+            tail = vertex_key
+            head = heads[edge_index]
+            return tail, head
+        else:
+            edge_index -= l
+    raise IndexError('index is out of range.')
+
+
+# pick a random edge (=pair)
+def get_random_edge(graph):
+    edge_index = randint(0, graph.get_edge_length() - 1)
+    return graph.get_edge(edge_index)
+
+
+def get_test_case_graph():
+    # n = 8, m = 14
+    # NOTE: each edge is represented 2 times for undirected graph
+    # (edge_length = sum(len(heads) for heads in graph.values()) / 2)
+    g = {1: [2, 3, 4, 7],
+         2: [1, 3, 4],
+         3: [1, 2, 4],
+         4: [1, 2, 3, 5],
+         5: [4, 6, 7, 8],
+         6: [5, 7, 8],
+         7: [1, 5, 6, 8],
+         8: [5, 6, 7]
+         }
+    return g
+
+
+# single run of contraction algorithm (NOTE: This mutates the graph)
+def karger_single_run(graph):
+    # Keep contracting the graph until we have 2 vertices
+    while len(graph) > 2:
+        random_edge = get_random_edge(graph)
+        contract_edge(graph, random_edge)
+
+    # TODO: How do we keep track of subset/cut???
+
+    # the size is the length of any of thw two adjacency lists (of same length)
+    size = len(graph[graph.keys()[0]])
+    return size
+
+
+#
+# General purpose Graph Methods
+#
 
 # Each function's input graph G should be represented in such a way that "for v in G" loops through the vertices,
 # and "G[v]" produces a list of the neighbors of v; for instance, G may be a dictionary mapping each vertex to
 # its neighbor set.
-
 def is_undirected(graph):
     """Check that graph represents a simple undirected graph."""
     for v in graph:
@@ -174,12 +242,20 @@ def min_degree(graph):
     return min([len(graph[v]) for v in graph])
 
 
+#
+# Main
+#
+
 def main():
     xs = [3, 7, 4, 1, 9]
     print(f'{xs} sorted is {sort(xs)}')
-    g1 = get_edge_list_example()
-    g2 = get_example_list_repr()
-    print(f'The graphs are identical: {equal_list_repr(g1, g2)}')
+    g3 = get_edge_list_example()
+    g4 = get_example_list_repr()
+    print(f'The graphs are identical: {equal_graphs(g3, g4)}')
+
+    g3 = get_test_case_graph()
+    g4 = graph_from_file('test.txt')
+    print(f'The graphs are identical: {equal_graphs(g3, g4)}')
 
 
 if __name__ == '__main__':
