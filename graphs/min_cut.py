@@ -1,6 +1,7 @@
+from itertools import repeat
 from re import sub
 from random import randint
-
+from copy import deepcopy
 
 # List representation of adjacency list
 #  * the vertices of a graph with n nodes will be numbered from 0 to n-1
@@ -119,6 +120,7 @@ def vertex_count(es):
             m = e[1]
     return m + 1
 
+
 #
 # Graph methods
 #
@@ -144,7 +146,29 @@ def graph_from_file(fn):
     return g
 
 
-def contract_edge(graph, edge):
+# one-liner for load graph
+def load_graph():
+    return {int(line.rstrip().split()[0]): [int(i) for i in line.rstrip().split()[1:]] for line in
+            open("kargerMinCut.txt")}
+
+
+def print_graph(graph):
+    for key in graph:
+        print("{}: {}".format(key, graph[key]))
+
+# TODO: dot file printer
+
+
+# this all symmetric arcs (only half of them is the edge count)
+def get_arc_list(graph):
+    return [(v, w) for v in graph for w in graph[v]]
+
+
+def get_edge_list(graph):
+    return [(v, w) for v in graph for w in graph[v] if v < w]
+
+
+def contract_edge(graph, super_vertices, edge):
     v = edge[0]  # tail
     w = edge[1]  # head
     # replace vertex v and w with new merged super-vertex
@@ -152,36 +176,58 @@ def contract_edge(graph, edge):
     graph[v].extend(graph[w])
     del graph[w]
     # replace all occurrences of w with v
+    # TODO: replace_all(xs, before, after)
+
+    # Because edges are symmetrical (bi-directional, undirected), we can search all successors of w for the edges
+    # for x in graph[w]:
+    #     graph[x].remove(w)
+    #     graph[x].append(v)
+
     for k, heads in graph.items():
         graph[k] = [v if x == w else x for x in heads]
+
     # Remove all edges of v to itself (i.e. remove self-loops)
-    # graph[v].remove(v)  # TODO: remove_all (multi-graph has parallel edges)
+    # graph[v].remove(v)  # TODO: remove_all(xs, val) (multi-graph has parallel edges)
     graph[v] = [x for x in graph[v] if x != v]
+
+    # union-add
+    super_vertices[v].update(super_vertices[w])
+    del super_vertices[w]
 
 
 # this will finally report the cut size, when only two vertices remain
+def get_arc_length(graph):
+    head_count = sum(len(vs) for vs in graph.values())
+    return head_count
+
+
+# (1, 3) and (3, 1) are counted as one (normalized) edge
 def get_edge_length(graph):
-    return sum(len(vs) for vs in graph)
+    return get_arc_length(graph) // 2
 
 
-def get_edge(graph, edge_index):
-    for vertex_key, heads in graph:
+# arc_index means all (non-normalized) edges
+def get_arc(graph, arc_index):
+    for vertex_key, heads in graph.items():
         l = len(heads)
-        if edge_index < l:
+        if arc_index < l:
             tail = vertex_key
-            head = heads[edge_index]
+            head = heads[arc_index]
             return tail, head
         else:
-            edge_index -= l
+            arc_index -= l
     raise IndexError('index is out of range.')
 
 
+# arc vs edge
 # pick a random edge (=pair)
 def get_random_edge(graph):
-    edge_index = randint(0, graph.get_edge_length() - 1)
-    return graph.get_edge(edge_index)
+    c = get_arc_length(graph)
+    edge_index = randint(0, c - 1)
+    return get_arc(graph, edge_index)
 
 
+# The answer should be : the number of min cuts is 2 and the cuts are at edges [(1,7), (4,5)]
 def get_test_case_graph():
     # n = 8, m = 14
     # NOTE: each edge is represented 2 times for undirected graph
@@ -200,21 +246,62 @@ def get_test_case_graph():
 
 # single run of contraction algorithm (NOTE: This mutates the graph)
 def karger_single_run(graph):
+    # dict of singleton sets with original vertex labels/ids
+    super_vertices = {v: {v} for v in graph}
     # Keep contracting the graph until we have 2 vertices
     while len(graph) > 2:
         random_edge = get_random_edge(graph)
-        contract_edge(graph, random_edge)
+        contract_edge(graph, super_vertices, random_edge)
 
-    # TODO: How do we keep track of subset/cut???
+    # the size is the length of any of the two adjacency lists (of same length)
+    keys = list(graph.keys())
+    size = len(graph[keys[0]])
 
-    # the size is the length of any of thw two adjacency lists (of same length)
-    size = len(graph[graph.keys()[0]])
-    return size
+    # return the cut-size and the cut-groupings
+    return size, list(super_vertices.values())
 
+
+def is_crossing(edge, cut):
+    v = edge[0]
+    w = edge[1]
+    first_group = cut[0]
+    second_group = cut[1]
+    return (v in first_group and w in second_group) or (v in second_group and w in first_group)
+
+
+def is_valid_cut(graph, cut):
+    first_group = cut[0]
+    second_group = cut[1]
+    return first_group.isdisjoint(second_group) and first_group.union(second_group) == {v for v in graph}
+
+
+def get_crossing_edge_list(graph, cut):
+    assert is_valid_cut(graph, cut)
+    return [e for e in get_edge_list(graph) if is_crossing(e, cut)]
+
+
+def karger(graph):
+    # Repeat 20*n^2 times
+    # n = len(graph)
+    # TODO: Problem that each repetition is slow for the kargerMinCut.txt graph
+    repetitions = 100  # 20 * n * n
+    min_size = get_edge_length(graph)  # NOTE: This can be any (BIG) number
+    i = 1
+    for _ in repeat(None, repetitions):
+        g = deepcopy(graph)
+        size, cut = karger_single_run(g)
+        print(i)
+        if size < min_size:
+            min_size = size
+            min_cut = cut
+        i += 1
+    # noinspection PyUnboundLocalVariable
+    return min_cut, min_size
 
 #
 # General purpose Graph Methods
 #
+
 
 # Each function's input graph G should be represented in such a way that "for v in G" loops through the vertices,
 # and "G[v]" produces a list of the neighbors of v; for instance, G may be a dictionary mapping each vertex to
@@ -243,6 +330,11 @@ def min_degree(graph):
 
 
 #
+# Graph Class (suitable for contraction algorithm)
+#
+
+
+#
 # Main
 #
 
@@ -256,6 +348,18 @@ def main():
     g3 = get_test_case_graph()
     g4 = graph_from_file('test.txt')
     print(f'The graphs are identical: {equal_graphs(g3, g4)}')
+    print(f'The edge-list is {get_edge_list(g3)}')
+
+    min_cut, min_size = karger(g3)
+    print(f'The minimum cut {min_cut} has crossing edge-list {get_crossing_edge_list(g3, min_cut)} of size {min_size}.')
+
+    g5 = graph_from_file('kargerMinCut.txt')
+    print(f'n = {len(g5)}, m = {get_edge_length(g5)}')
+
+    # The correct answer should be 17
+    min_cut2, min_size2 = karger(g5)
+    print(f'The minimum cut {min_cut2} has crossing edge-list {get_crossing_edge_list(g5, min_cut2)} ',
+          f'of size {min_size2}.')
 
 
 if __name__ == '__main__':
