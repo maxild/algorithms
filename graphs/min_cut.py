@@ -1,7 +1,9 @@
+import time
 from itertools import repeat
 from re import sub
 from random import randint
 from copy import deepcopy
+
 
 # List representation of adjacency list
 #  * the vertices of a graph with n nodes will be numbered from 0 to n-1
@@ -162,6 +164,7 @@ def to_string(graph):
 def print_graph(graph):
     print(to_string(graph))
 
+
 # TODO: dot file printer
 
 
@@ -174,6 +177,25 @@ def get_edge_list(graph):
     return [(v, w) for v in graph for w in graph[v] if v < w]
 
 
+# Better impl
+def contract(graph, super_vertices, edge):
+    v = edge[0]  # tail
+    w = edge[1]  # head
+    for node in graph[w]:  # merge the nodes from w to v
+        # merge w into v
+        if node != v:  # we dont want to add self-loops
+            graph[v].append(node)
+        # replace w with v in all other links to w (except from v)
+        graph[node].remove(w)  # delete the edges to the absorbed
+        if node != v:
+            graph[node].append(v)
+    del graph[w]  # delete the absorbed vertex 'w'
+
+    super_vertices[v].update(super_vertices[w])
+    del super_vertices[w]
+
+
+# Use this alternative to do optimizations
 def contract_edge(graph, super_vertices, edge):
     v = edge[0]  # tail
     w = edge[1]  # head
@@ -278,7 +300,7 @@ def karger_single_run(graph):
     # Keep contracting the graph until we have 2 vertices
     while len(graph) > 2:
         random_edge = get_random_edge(graph)
-        contract_edge(graph, super_vertices, random_edge)
+        contract(graph, super_vertices, random_edge)
 
     # the size is the length of any of the two adjacency lists (of same length)
     keys = list(graph.keys())
@@ -308,22 +330,27 @@ def get_crossing_edge_list(graph, cut):
 
 
 def karger(graph):
+    # with number of repetitions n*n*ln(n), failure chance is 1/n
+    n = len(graph)
+    # import math
+    # repetitions = int(n * n * math.log(n))
     # Repeat 20*n^2 times
-    # n = len(graph)
     # TODO: Problem that each repetition is slow for the kargerMinCut.txt graph
-    repetitions = 100  # 20 * n * n
+    repetitions = min(n * n, 100)
+    print(f'repetitions: {repetitions}')
     min_size = get_edge_length(graph)  # NOTE: This can be any (BIG) number
     i = 1
     for _ in repeat(None, repetitions):
         g = deepcopy(graph)
         size, cut = karger_single_run(g)
-        print(i)
+        # print(i)
         if size < min_size:
             min_size = size
             min_cut = cut
         i += 1
     # noinspection PyUnboundLocalVariable
     return min_cut, min_size
+
 
 #
 # General purpose Graph Methods
@@ -366,6 +393,9 @@ def min_degree(graph):
 #
 
 def main():
+    import os
+    root_dir = os.path.dirname(os.path.realpath(__file__))
+
     xs = [3, 7, 4, 1, 9]
     print(f'{xs} sorted is {sort(xs)}')
     g3 = get_edge_list_example()
@@ -373,21 +403,23 @@ def main():
     print(f'The graphs are identical: {equal_graphs(g3, g4)}')
 
     g3 = get_test_case_graph()
-    g4 = graph_from_file('test.txt')
+    g4 = graph_from_file(os.path.join(root_dir, 'test.txt'))
     print(f'The graphs are identical: {equal_graphs(g3, g4)}')
     print(f'The edge-list is {get_edge_list(g3)}')
 
     min_cut, min_size = karger(g3)
     print(f'The minimum cut {min_cut} has crossing edge-list {get_crossing_edge_list(g3, min_cut)} of size {min_size}.')
 
-    g5 = graph_from_file('kargerMinCut.txt')
+    g5 = graph_from_file(os.path.join(root_dir, 'kargerMinCut.txt'))
     print(f'n = {len(g5)}, m = {get_edge_length(g5)}')
 
     # The correct answer should be 17
     min_cut2, min_size2 = karger(g5)
-    print(f'The minimum cut {min_cut2} has crossing edge-list {get_crossing_edge_list(g5, min_cut2)} ',
-          f'of size {min_size2}.')
+    print(f'The size {min_size2} of the min-cut\n\n{min_cut2[0]}\n\n{min_cut2[1]}\n\n',
+          f'has crossing edge-list\n\n{get_crossing_edge_list(g5, min_cut2)}')
 
 
 if __name__ == '__main__':
+    start = time.time()
     main()
+    print(f'Time: {time.time() - start} seconds')
