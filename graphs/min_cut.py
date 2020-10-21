@@ -152,9 +152,15 @@ def load_graph():
             open("kargerMinCut.txt")}
 
 
-def print_graph(graph):
+def to_string(graph):
+    lines = []
     for key in graph:
-        print("{}: {}".format(key, graph[key]))
+        lines.append(f'{key}: {graph[key]}')
+    return "\n".join(lines)
+
+
+def print_graph(graph):
+    print(to_string(graph))
 
 # TODO: dot file printer
 
@@ -171,24 +177,45 @@ def get_edge_list(graph):
 def contract_edge(graph, super_vertices, edge):
     v = edge[0]  # tail
     w = edge[1]  # head
-    # replace vertex v and w with new merged super-vertex
-    # (i.e. merge w into v and remove w from graph)
+
+    # replace vertex v and w with new merged super-vertex y
+    # (i.e. merge w into v, but only avoid self-loops)
+    # for x in graph[w]:
+    #     if x != v:
+    #         graph[v].append(x)
     graph[v].extend(graph[w])
-    del graph[w]
-    # replace all occurrences of w with v
+
+    # Replace every edge (v,z) in E and edge (w,z) in E with new edge (y,z)
+    # replace all occurrences of w with v in the (implicit) edge lists
     # TODO: replace_all(xs, before, after)
 
     # Because edges are symmetrical (bi-directional, undirected), we can search all successors of w for the edges
-    # for x in graph[w]:
-    #     graph[x].remove(w)
-    #     graph[x].append(v)
+    for x in graph[w]:
+        # x has an edge to w, therefore we need to replace w with v in x's adjacency list
+        heads = graph[x]
+        for i in range(len(heads)):
+            if heads[i] == w:
+                heads[i] = v
+                break  # NOTE: Even though parallel edges are possible we can break because graph[w] keep score of links
+        # graph[x].remove(w)
+        # graph[x].append(v)
 
-    for k, heads in graph.items():
-        graph[k] = [v if x == w else x for x in heads]
+    # remove w from graph
+    del graph[w]
 
+    # for k, heads in graph.items():
+    #     graph[k] = [v if x == w else x for x in heads]
+
+    # Drop all edges (v,w) in E (i.e. remove self-loops)
     # Remove all edges of v to itself (i.e. remove self-loops)
-    # graph[v].remove(v)  # TODO: remove_all(xs, val) (multi-graph has parallel edges)
-    graph[v] = [x for x in graph[v] if x != v]
+
+    # NOTE: remove all self-loops by backwards iteration and popping (for perf)
+    al = graph[v]
+    for i in range(len(al) - 1, -1, -1):
+        if al[i] == v:
+            al.pop(i)
+
+    # graph[v] = [x for x in graph[v] if x != v]
 
     # union-add
     super_vertices[v].update(super_vertices[w])
