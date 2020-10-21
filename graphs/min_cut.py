@@ -357,20 +357,6 @@ def karger(graph):
 #
 
 
-# Each function's input graph G should be represented in such a way that "for v in G" loops through the vertices,
-# and "G[v]" produces a list of the neighbors of v; for instance, G may be a dictionary mapping each vertex to
-# its neighbor set.
-def is_undirected(graph):
-    """Check that graph represents a simple undirected graph."""
-    for v in graph:
-        # no self-loops
-        if v in graph[v]:
-            return False
-        # all relations (edges) are symmetric
-        for w in graph[v]:
-            if v not in graph[w]:
-                return False
-    return True
 
 
 def max_degree(graph):
@@ -414,8 +400,8 @@ def main():
     print(f'n = {len(g5)}, m = {get_edge_length(g5)}')
 
     # The correct answer should be 17
-    min_cut2, min_size2 = karger(g5)
-    print(f'The size {min_size2} of the min-cut\n\n{min_cut2[0]}\n\n{min_cut2[1]}\n\n',
+    min_cut2, min_sz = karger(g5)
+    print(f'The min-cut of size {min_sz} partitions the nodes of the graph into \n\n{min_cut2[0]}\n\n{min_cut2[1]}\n\n',
           f'has crossing edge-list\n\n{get_crossing_edge_list(g5, min_cut2)}')
 
 
